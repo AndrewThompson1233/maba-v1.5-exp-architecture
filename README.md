@@ -40,15 +40,24 @@ tags:
   <img src="assets/logo.svg" width="160" alt="Maba Logo" />
 </p>
 
-# Maba v1.5-exp Architecture: Sub-Quadratic Hybrid Decoupled Gated Recurrence & Dynamic Sparse Attention
+# Maba v1.5-exp Architecture
 
-Official technical specification, scaling topology, and reference PyTorch implementation of the **Maba v1.5 Experimental Architecture** (`maba-v1.5-exp-architecture`). 
+Reference PyTorch implementation and specifications for the **Maba v1.5 Experimental Architecture** (`maba-v1.5-exp-architecture`).
 
-Maba v1.5-exp advances the hybrid linear-recurrent paradigm by combining:
-1. **75% Decoupled Gated Delta Attention (DGDA)**: Recurrence layers with independent erase gate $b_t$ on keys, write gate $w_t$ on values, per-channel negative-softplus decay $\alpha_t$, and chunkwise parallel prefill ($C=16$) driven by Order-3 Neumann series matrix inversion with adaptive exact triangular solve fallback.
-2. **25% Global MABA-SA Attention**: Dynamic sparse attention featuring Multi-Head Latent Attention (MLA) low-rank key-value compression ($d_c=128$), strict NoPE (zero positional embeddings in attention layers), Delta-Guided Centroid Indexing (DG-Indexer) selecting Top-32 blocks, and 3-stream output superposition (Local window $W=128$ + 4 sinks, Top-32 sparse blocks, 64:1 Heavily Compressed Attention HCA).
-3. **Core Parameter Ratio (95.21%)**: Factorized token embeddings ($32,768 \to 128 \to 640$) minimize vocabulary tax to 4.31%, dedicating 95.21% of parameter capacity directly to sequence modeling.
-4. **Built-in Multi-Token Prediction (MTP)**: Integrated speculative heads ($k=2$) predict future token representations natively without external companion draft models.
+Maba v1.5 is an interleaved sub-quadratic hybrid model combining:
+* **75% Decoupled Gated Delta Attention (DGDA)**: Linear recurrence with independent key erase gate `b_t`, value write gate `w_t`, channel-wise negative-softplus decay `alpha_t`, and chunkwise parallel prefill (C=16) via Order-3 Neumann series inversion.
+* **25% Global MABA-SA Attention**: Low-rank MLA key-value compression (d_c=128), strict NoPE (no positional embeddings), Delta-Guided Centroid Indexing (Top-32 blocks), and 3-stream output superposition (Local window + Top-32 sparse blocks + 64:1 HCA).
+* **High Computation Core (95.21%)**: Factorized token embeddings (32,768 -> 128 -> 640) constrain vocabulary tax to 4.30%, leaving 95.21% of parameters for sequence modeling layers.
+* **Native Speculative Drafter**: Built-in Multi-Token Prediction (MTP k=2) heads for parallel token verification without companion models.
+
+---
+
+## Documentation Index
+
+Detailed technical documentation is organized across dedicated files:
+* [SCALING.md](SCALING.md): Multi-scale parameter derivations from 100M to 30B, KV cache scaling to 1M context, and audits against 2026 foundation architectures (Qwen3.5, Muse-30B, Gemma4).
+* [BENCHMARK_REPORT.md](BENCHMARK_REPORT.md): Empirical test verification, state memory invariance, and runtime scaling benchmarks.
+* [MABA_SPARSE_SPEC_AND_ROADMAP.md](MABA_SPARSE_SPEC_AND_ROADMAP.md): Full mathematical derivations, proofs, gate mechanics, and algorithm pseudo-code.
 
 ---
 
@@ -58,17 +67,25 @@ Maba v1.5-exp advances the hybrid linear-recurrent paradigm by combining:
 
 ---
 
-## Architectural Principles
+## 6-Way Macro Architecture Comparison (~101M Parameters)
 
-Standard transformers scale at $O(L^2)$ time and memory with sequence length $L$. Linear RNNs and state-space models scale at $O(1)$ recurrent memory during generation, but can exhibit information bottlenecks across complex long-horizon associative retrieval tasks.
+| Metric | Maba v1.5-exp | Maba v1.1 | Maba v1.0 Legacy | Qwen 3.8 | Qwen 3.8 Flash Next | MiniCPM5 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Parameter Budget** | **101.28M** | 101.18M | 101.18M | 101.15M | 101.13M | 100.40M |
+| **Core Computation Ratio** | **95.21%** | 95.21% | 95.21% | 75.00% | 74.99% | 79.20% |
+| **Recurrence Engine (75%)** | **DGDA (Decoupled)** | GDN-2 (Tied Gate) | GDN (Standard) | GDN (Standard) | GDN (Standard) | 0% (Pure Attention) |
+| **Chunk Inversion** | **Neumann-3 + Fallback** | Sequential | Sequential | Sequential | Sequential | N/A |
+| **Attention Engine (25%)** | **MABA-SA (MLA+Top32+HCA)**| GQA (4:1) | GQA (4:1) | GQA (4:1) | QSA (Sparse) | 100% GQA |
+| **Positional Encoding** | **Strict NoPE** | RoPE | RoPE | RoPE | RoPE | RoPE |
+| **KV Cache Footprint (4k)** | **2.50 MB (-94.0%)** | 10.00 MB (-76.2%) | 10.00 MB (-76.2%) | 10.00 MB (-76.2%) | 2.50 MB (-94.0%) | 42.00 MB (Baseline) |
+| **Recurrent State (O(1))** | **2.45 MB** | 1.17 MB | 1.17 MB | 1.17 MB | 1.17 MB | 0.00 MB |
+| **Active Memory @ 1M Context**| **2.50 MB (-99.97%)** | 2,560.00 MB | 2,560.00 MB | 2,560.00 MB | 640.00 MB | 10,752.00 MB |
+| **Speculative Heads** | **Built-in MTP (k=2)** | Built-in MTP (k=2) | None | Built-in MTP (k=2) | Built-in MTP (k=2) | None |
+| **Test Suite Verification** | **152 / 152 passed (100%)** | 105 passed | 82 passed | N/A | N/A | N/A |
 
-Maba v1.5-exp resolves this trade-off through an interleaved **cyclic 3:1 macro-stack**:
-
-* **75% Decoupled Gated Delta Attention (DGDA)**: Updates a state matrix $S_t \in \mathbb{R}^{d_k \times d_v}$ in $O(1)$ constant memory per decode step (2.45 MB total across all 15 DGDA layers). Parallel prefill partitions tokens into chunks of size $C=16$, solving intra-chunk dependencies via $(I + L)^{-1} \approx I - L + L^2 - L^3$ in matrix space with fallback to exact triangular solves when residual errors exceed $7 \times 10^{-5}$.
-* **25% Global MABA-SA Dynamic Sparse Attention**: Compresses key-value activations into a latent vector $c_t^{KV} \in \mathbb{R}^{128}$ via low-rank MLA down-projection, saving 80% KV projection bandwidth. The Delta-Guided Centroid Indexer evaluates block centroids via hybrid 0.5*mean + 0.5*max pooling with logarithmic distance penalties, dynamically routing queries to the Top-32 most salient blocks.
-* **3-Stream Superposition**: Combines local high-frequency tokens (sliding window $W=128$ + 4 attention sinks), distant semantic blocks (Top-32 sparse blocks), and global context history (64:1 macro-pooled HCA) through dynamic softmax gating:
-  $$O_t = g_{\text{local}} O_t^{(\text{local})} + g_{\text{sparse}} O_t^{(\text{sparse})} + g_{\text{hca}} O_t^{(\text{hca})}$$
-* **Strict NoPE (No Positional Embeddings)**: Attention layers use zero rotary position embeddings (RoPE) or absolute position embeddings. Sequence ordering is conveyed via channel-wise exponential decay $\alpha_t$ in DGDA recurrence ($L_2$ permutation divergence = 39.518).
+> [!NOTE]
+> **Pretrained Weights and Downstream Evaluation**
+> This repository contains the reference architectural specification and PyTorch engine. Downstream task evaluations (ARC-Easy, HellaSwag, Story Cloze) and trained Safetensors weights will be published in the dedicated model weights repository upon completing pretraining runs.
 
 ---
 
@@ -80,26 +97,15 @@ Maba v1.5-exp resolves this trade-off through an interleaved **cyclic 3:1 macro-
 | :--- | :--- | :---: | :---: | :--- |
 | **Factorized Embedding** | W_emb (32,768 x 128) | 4,194,304 | 4.14% | Token lookup table |
 | **Embedding Projections** | W_proj_in + W_proj_out | 163,840 | 0.16% | Rank 128 <-> Dim 640 |
-| **Embedding Subtotal** | **Vocab Tax** | **4,358,144** | **4.30%** | **Static vocabulary tax** |
+| **Embedding Subtotal** | **Vocab Tax** | **4,358,144** | **4.30%** | **Static parameter overhead** |
 | **15 DGDA Recurrence Blocks** | DGDA Mixer + SwiGLU FFN + RMSNorm | 74,908,800 | 73.96% | Linear O(1) recurrence & gating |
 | **5 MABA-SA Attention Blocks** | MLA Attention + DG-Indexer + SwiGLU | 21,522,560 | 21.25% | Dynamic sparse attention routing |
-| **Computation Core** | **All 20 Physical Blocks** | **96,431,360** | **95.21%** | **Sequence modeling core** |
-| **Final RMSNorm** | Layer normalization gain | 640 | <0.01% | Final hidden feature variance scale |
+| **Computation Core** | **All 20 Physical Blocks** | **96,431,360** | **95.21%** | **Core sequence modeling** |
+| **Final RMSNorm** | Layer normalization gain | 640 | <0.01% | Final feature variance scale |
 | **MTP Auxiliary Head** | k=2 projection and norm | 492,160 | 0.49% | Native speculative verification |
 | **Total Architecture** | **Full Model Parameters** | **101,282,319** | **100.00%** | **101.28M parameter budget** |
 
-### 2. Weight Memory Footprint by Precision
-
-| Precision | Bytes per Parameter | Model Weights VRAM | Execution Notes |
-| :--- | :---: | :---: | :--- |
-| **FP32 (Full Precision)** | 4 bytes | **386.36 MB** | Reference precision and CPU training |
-| **BF16 / FP16 (Half Precision)** | 2 bytes | **193.18 MB** | Production GPU training and inference |
-| **INT8 (Quantized)** | 1 byte | **96.59 MB** | On-device edge runtime |
-| **INT4 (GPTQ / AWQ)** | 0.5 bytes | **48.29 MB** | Embedded and mobile edge deployment |
-
-### 3. KV-Cache & Recurrent State Memory Scaling
-
-Maba v1.5-exp partitions state memory into an invariant $O(1)$ recurrent matrix (DGDA) and an MLA-compressed dynamic sparse cache:
+### 2. State Memory Scaling Across Context Horizons
 
 | Context Length (Tokens) | Maba v1.5-exp Cache | Maba v1.1 Cache | Qwen 3.8 Cache | Qwen 3.8 Flash Next | Pure Attention (Dense) | Memory Reduction vs Dense |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -113,81 +119,40 @@ Maba v1.5-exp partitions state memory into an invariant $O(1)$ recurrent matrix 
 | **131,072 (128k)** | **80.00 MB** | 320.00 MB | 320.00 MB | 80.00 MB | 1,344.00 MB | **-94.0%** |
 | **1,048,576 (1M)** | **2.50 MB\*** | 2,560.00 MB | 2,560.00 MB | 640.00 MB | 10,752.00 MB | **-99.97%** |
 
-\* Note: At $L=1,048,576$, the DG-Indexer selects strictly Top-32 blocks ($32 \times 64 = 2048$ active tokens). Active attention working memory remains strictly bounded at 2.50 MB, while DGDA recurrent state remains strictly fixed at 2.45 MB ($O(1)$).
+\* Note on 1M Context: The DG-Indexer selects Top-32 blocks (2048 active tokens), bounding working attention memory at 2.50 MB regardless of sequence length.
 
 ---
 
-## 6-Way Macro Architecture Comparison (~101M Parameters)
+## Core Formulation Reference
 
-| Metric | Maba v1.5-exp | Maba v1.1 | Maba v1.0 Legacy | Qwen 3.8 | Qwen 3.8 Flash Next | MiniCPM5 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Parameter Budget** | **101.28M** | 101.18M | 101.18M | 101.15M | 101.13M | 100.40M |
-| **Core Computation Ratio** | **95.21%** | 95.21% | 95.21% | 75.00% | 74.99% | 79.20% |
-| **Recurrence Engine (75%)** | **DGDA (Decoupled)** | GDN-2 (Tied Gate) | GDN (Standard) | GDN (Standard) | GDN (Standard) | 0% (Pure Attention) |
-| **Chunk Inversion** | **Neumann-3 + Exact Fallback** | Sequential | Sequential | Sequential | Sequential | N/A |
-| **Attention Engine (25%)** | **MABA-SA (MLA+Sparse+HCA)** | GQA (4:1) | GQA (4:1) | GQA (4:1) | QSA (Sparse) | 100% GQA |
-| **Positional Encoding** | **Strict NoPE** | RoPE | RoPE | RoPE | RoPE | RoPE |
-| **KV Cache Footprint (4k)** | **2.50 MB (-94.0%)** | 10.00 MB (-76.2%) | 10.00 MB (-76.2%) | 10.00 MB (-76.2%) | 2.50 MB (-94.0%) | 42.00 MB (Baseline) |
-| **Recurrent State ($O(1)$)** | **2.45 MB** | 1.17 MB | 1.17 MB | 1.17 MB | 1.17 MB | 0.00 MB |
-| **Active Memory @ 1M Context**| **2.50 MB (-99.97%)** | 2,560.00 MB | 2,560.00 MB | 2,560.00 MB | 640.00 MB | 10,752.00 MB |
-| **Speculative Heads** | **Built-in MTP ($k=2$)** | Built-in MTP ($k=2$) | None | Built-in MTP ($k=2$) | Built-in MTP ($k=2$) | None |
-| **Test Suite Verification** | **152 / 152 passed (100%)** | 105 passed | 82 passed | N/A | N/A | N/A |
+Clean mathematical representations without complex LaTeX macros:
 
-> [!NOTE]
-> **Pretrained Weights and Downstream Evaluation**
-> This repository contains the reference architectural specification, clean layer implementation, and mathematical formulations. Downstream task evaluations (ARC, HellaSwag, Story Cloze) and trained Safetensors checkpoints will be released in the dedicated model weights repository upon completing pretraining.
+```text
+1. Recurrence Step (DGDA, 75% of layers):
+   State Update : S_t = diag(alpha_t) * S_{t-1} - k_t * ((b_t * k_t)^T * diag(alpha_t) * S_{t-1}) + (w_t * v_t) * k_t^T
+   Readout      : o_t = q_t * S_t
+   Where        : b_t in [0, 1]^d_k (erase gate), w_t in [0, 1]^d_v (write gate)
+                  alpha_t = exp(-softplus(x_t * W_alpha)) (channel-wise decay)
 
----
+2. Dynamic Sparse Attention (MABA-SA, 25% of layers):
+   KV Latent    : c_t = W_down * x_t  (compressed from dim 640 to rank 128)
+   Centroids    : C_i = 0.5 * mean(Block_i) + 0.5 * max(Block_i)
+   Block Score  : Score(q_t, C_i) = q_t * C_i^T - lambda * log(1 + |t/B - i|)
+   Routing      : Dynamically queries the Top-32 most salient blocks of size B=64
 
-## Technical Component Mathematics
-
-### 1. Factorized Token Embeddings
-To avoid vocabulary weights diluting sequence modeling depth, Maba v1.5 factorizes the embedding projection:
-$$x = \operatorname{Linear}_{d_{\text{emb}} \to D}(\operatorname{Embedding}(V, d_{\text{emb}}))$$
-With $V = 32,768$, $d_{\text{emb}} = 128$, and $D = 640$, embedding parameters are restricted to 4.36M (4.30% vocab tax), preserving 95.21% of the budget for transformer and recurrent blocks.
-
-### 2. DGDA Recurrence Core (75% of Layers)
-Implemented in [dgda.py](file:///workspaces/123123/maba-v1.5-exp-architecture/maba_sparse/layers/dgda.py):
-* Decoupled vector erase gate $b_t = \sigma(x_t W_b) \in [0, 1]^{d_k}$
-* Decoupled vector write gate $w_t = \sigma(x_t W_w) \in [0, 1]^{d_v}$
-* Negative-softplus decay $\alpha_t = \exp(-\operatorname{softplus}(x_t W_\alpha)) \in (0, 1]^{d_k}$
-* Key L2 normalization: $k_t = k_t / (\|k_t\|_2 + \epsilon)$
-* Single-token $O(1)$ decode state recurrence:
-  $$S_t = \operatorname{Diag}(\alpha_t) S_{t-1} - k_t ((b_t \odot k_t)^\top \operatorname{Diag}(\alpha_t) S_{t-1}) + (w_t \odot v_t) k_t^\top$$
-  $$o_t = q_t S_t$$
-* Chunkwise parallel prefill ($C=16$): solves intra-chunk triangular dependency matrix $L$ via 4-term Neumann series:
-  $$(I + L)^{-1} \approx I - L + L^2 - L^3$$
-  with automatic fallback to exact triangular solves when residual $\|v_{\text{eff}} - (I+L) u\|_\infty > 7 \times 10^{-5}$.
-
-### 3. Global MABA-SA Dynamic Sparse Attention (25% of Layers)
-Implemented in [sparse_attention.py](file:///workspaces/123123/maba-v1.5-exp-architecture/maba_sparse/layers/sparse_attention.py):
-* Low-rank MLA compression: key-value states down-projected to latent vector $c_t^{KV} \in \mathbb{R}^{128}$.
-* Strict NoPE: positional embeddings omitted; temporal order conveyed via DGDA channel decays.
-* 3-Stream Output Superposition:
-  - **Stream 1 (Local)**: sliding window $W=128$ + first 4 attention sinks.
-  - **Stream 2 (Sparse)**: dynamic Top-32 blocks selected by DG-Indexer.
-  - **Stream 3 (HCA)**: 64:1 macro-averaged compressed context history.
-  - **Dynamic Softmax Gating**: $O_t = g_{\text{local}} O_t^{(\text{local})} + g_{\text{sparse}} O_t^{(\text{sparse})} + g_{\text{hca}} O_t^{(\text{hca})}$.
-
-### 4. Delta-Guided Centroid Indexer (DG-Indexer)
-Implemented in [indexer.py](file:///workspaces/123123/maba-v1.5-exp-architecture/maba_sparse/layers/indexer.py):
-* Partitions sequence into blocks of size $B=64$ in index space $d_{\text{idx}}=64$.
-* Computes centroids via hybrid pooling: $C_i = 0.5 \times \operatorname{mean}(B_i) + 0.5 \times \operatorname{max}(B_i)$.
-* Scores blocks using query-centroid dot product with logarithmic distance penalty:
-  $$\operatorname{Score}(q_t, C_i) = q_t C_i^\top - \lambda \log(1 + |t/B - i|)$$
-* Dynamically selects Top-32 active blocks, delivering 99.8% sparsity at 1M context.
-
-### 5. Multi-Token Prediction (MTP k=2) Head
-Implemented in [model.py](file:///workspaces/123123/maba-v1.5-exp-architecture/maba_sparse/model.py):
-* Shares tied factorized LM head weights: $W_{\text{head\_proj}}$ and $W_{\text{lm\_head}}$.
-* Evaluates next-two-token loss during training with 0.3 auxiliary loss weighting:
-  $$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{next\_token}} + 0.3 \times \mathcal{L}_{\text{mtp}}$$
+3. 3-Stream Output Superposition:
+   O_t = g_local * O_local + g_sparse * O_sparse + g_hca * O_hca
+   Where {g_local, g_sparse, g_hca} = softmax(x_t * W_gate)
+   - Stream 1: Local window W=128 + 4 attention sinks
+   - Stream 2: Dynamic Top-32 sparse blocks
+   - Stream 3: 64:1 macro-averaged compressed history (HCA)
+```
 
 ---
 
 ## Verification Test Suite (100% Pass Rate)
 
-The automated test suite verifies gradient continuity, causal masking, numerical stability, boundary sequence lengths, and $O(1)$ memory invariance across 152 automated tests:
+The test suite verifies numerical stability, boundary sequence lengths, causal masking, and O(1) state memory invariance:
 
 ```bash
 pytest -q
@@ -196,27 +161,27 @@ pytest -q
 ........................................................................ [ 47%]
 ........................................................................ [ 94%]
 ........                                                                 [100%]
-152 passed in 21.90s
+152 passed in 24.13s
 ```
 
-All 8 test suites pass with zero warnings and zero NaNs:
-- `test_dgda.py`: Chunkwise Neumann prefill parity against sequential recurrence ($< 4.58 \times 10^{-5}$).
-- `test_dgda_stress.py`: Arbitrary sequence lengths (1, 17, 33, 65, 128, 256) and extreme input bounds.
-- `test_indexer.py`: Hybrid centroid pooling, logarithmic distance penalty, and causal block masking.
-- `test_sparse_attention.py`: MLA KV compression, 3-stream superposition, and KV cache updates.
-- `test_model.py`: 101M parameter accounting, tied embeddings, MTP auxiliary loss, and autoregressive generation.
-- `test_nope_order_sensitivity.py`: Permutation sensitivity confirmation ($L_2$ divergence = 39.518).
-- `test_challenger_empirical.py`: Analytical gradient continuity and strict $O(1)$ recurrent memory invariance (2,457,600 bytes).
-- `test_ablations.py`: Layer ablations (pure DGDA, no HCA, dense baseline comparison).
+All 8 test suites pass with zero warnings:
+* [tests/test_dgda.py](tests/test_dgda.py): Chunkwise Neumann prefill parity against recurrent decode (error < 4.58e-5).
+* [tests/test_dgda_stress.py](tests/test_dgda_stress.py): Arbitrary sequence lengths (1, 17, 33, 65, 128, 256) and extreme inputs (+-100).
+* [tests/test_indexer.py](tests/test_indexer.py): Hybrid centroid pooling, distance penalties, and causal block masking.
+* [tests/test_sparse_attention.py](tests/test_sparse_attention.py): MLA compression, 3-stream superposition, and KV cache updates.
+* [tests/test_model.py](tests/test_model.py): 101M parameter accounting, tied embeddings, MTP auxiliary loss, and generation.
+* [tests/test_nope_order_sensitivity.py](tests/test_nope_order_sensitivity.py): Permutation sensitivity under zero RoPE (L2 divergence = 39.518).
+* [tests/test_challenger_empirical.py](tests/test_challenger_empirical.py): Strict O(1) state memory invariance (exactly 2,457,600 bytes).
+* [tests/test_ablations.py](tests/test_ablations.py): Layer ablations (pure DGDA, no HCA, dense transformer baseline).
 
 ---
 
-## Quick Start & Python Reference API
+## Quick Start & Reference API
 
 ### 1. Installation
 ```bash
-git clone https://github.com/ivan-dev35/123123.git
-cd 123123/maba-v1.5-exp-architecture
+git clone https://huggingface.co/AndrewThompson1233/maba-v1.5-exp-architecture
+cd maba-v1.5-exp-architecture
 pip install -e .
 ```
 
@@ -226,7 +191,7 @@ import torch
 from maba_sparse.config import MabaSparseConfig
 from maba_sparse.model import MabaSparseForCausalLM, get_101m_config
 
-# Instantiate 101M Maba v1.5-exp model
+# Initialize 101M reference model
 cfg = get_101m_config()
 model = MabaSparseForCausalLM(cfg)
 
@@ -236,16 +201,11 @@ generated = model.generate(prompt, max_new_tokens=32, temperature=0.7)
 print("Generated token sequence:", generated.tolist())
 ```
 
-### 3. Model Training
+### 3. Training & Benchmarking
 ```bash
-# Multi-GPU training via PyTorch DDP
-python train.py --model maba_sparse --steps 1000 --batch_size 4 --seq_len 512 --lr 1e-4
-
-# CPU local smoke test
+# Model training smoke test
 python train.py --model maba_sparse --steps 5 --batch_size 2 --seq_len 64
-```
 
-### 4. Running Comparative Benchmarks
-```bash
-python benchmark.py --contexts 512,1024,2048,4096 --warmup 1 --repeats 2 --output_json benchmark_results.json --output_md BENCHMARK_REPORT.md
+# Benchmark latency and state memory scaling
+python benchmark.py --contexts 512,1024,2048,4096 --warmup 1 --repeats 2
 ```
