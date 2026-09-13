@@ -90,10 +90,10 @@ Technical specification, closed-form parameter formulations, and architectural a
 
 ## 3. KV-Cache Memory Scaling Across Sequence Horizons
 
-Memory footprint in megabytes (MB) for single-stream FP16 inference:
-
-$$\text{Maba v1.5 Active Cache} = N_{\text{sa}} \times (\text{Top-}K \times B) \times d_c \times 2 \text{ bytes}$$
-$$\text{Maba v1.5 Full Latent History} = N_{\text{sa}} \times L \times d_c \times 2 \text{ bytes}$$
+```text
+Active Cache (MB) = N_sa * (Top_K * B) * d_c * 2 bytes
+Full Latent (MB)  = N_sa * L * d_c * 2 bytes
+```
 
 | Model Scale | Model | 32,768 Tokens | 65,536 Tokens | 131,072 Tokens | 1,048,576 Tokens (1M) | Memory Reduction vs Dense |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |

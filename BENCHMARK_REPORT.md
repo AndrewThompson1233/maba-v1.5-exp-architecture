@@ -56,7 +56,9 @@ The reference PyTorch implementation is verified across 152 automated tests:
 
 Memory footprint in megabytes (MB) comparing single-stream FP16 execution:
 
-$$\mathrm{Total~State~Memory} = M_{\mathrm{recurrent}} + M_{\mathrm{kv\_cache}}$$
+```text
+Total State Memory = M_recurrent + M_kv_cache
+```
 
 | Context Length (Tokens) | Maba v1.5-exp Cache | Maba v1.1 Cache | Qwen 3.8 Cache | Qwen 3.8 Flash Next | MiniCPM5 (Dense) | Maba v1.5-exp vs Dense |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
