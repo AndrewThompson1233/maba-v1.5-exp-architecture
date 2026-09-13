@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: maba-v1.5-exp-architecture
+Version: 0.1.0
+Summary: Maba v1.5 Experimental Architecture: Hybrid DGDA Recurrence + Dynamic Sparse Global Attention
+Author: Maba Sparse Research Team
+License: MIT
+Keywords: deep-learning,pytorch,transformer,sparse-attention,linear-attention,recurrent-memory,long-context
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: torch>=2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-benchmark; extra == "dev"
