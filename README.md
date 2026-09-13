@@ -42,6 +42,10 @@ tags:
 
 # Maba v1.5-exp Architecture
 
+> [!NOTE]
+> **Experimental Architecture**
+> This repository contains an experimental research architecture (`maba-v1.5-exp-architecture`) exploring sub-quadratic decoupled linear recurrence and dynamic sparse attention. It is a research prototype.
+
 Reference PyTorch implementation and specifications for the **Maba v1.5 Experimental Architecture** (`maba-v1.5-exp-architecture`).
 
 Maba v1.5 is an interleaved sub-quadratic hybrid model combining:
