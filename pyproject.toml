@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maba-v1.5-exp-architecture"
+version = "0.1.0"
+description = "Maba v1.5 Experimental Architecture: Hybrid DGDA Recurrence + Dynamic Sparse Global Attention"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Maba Sparse Research Team" }
+]
+keywords = [
+    "deep-learning",
+    "pytorch",
+    "transformer",
+    "sparse-attention",
+    "linear-attention",
+    "recurrent-memory",
+    "long-context"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "torch>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-benchmark",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["maba_sparse*"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
