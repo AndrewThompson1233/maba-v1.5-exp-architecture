@@ -1,0 +1,19 @@
+# Python & PyTorch artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.pt
+*.pth
+*.bin
+
+# Testing
+.pytest_cache/
+
+# Packaging
+*.egg-info/
+build/
+dist/
+
+# Logs & temp
+*.log
+.DS_Store
