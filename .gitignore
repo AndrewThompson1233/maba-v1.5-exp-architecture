@@ -20,5 +20,7 @@ dist/
 
 # Internal agent logs & local reports
 KERNEL_ENGINE_PROGRESS.md
+TEST_INFRA.md
+TEST_READY.md
 .agents/
 *.agent.md
