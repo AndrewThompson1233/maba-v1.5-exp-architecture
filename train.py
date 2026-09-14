@@ -112,10 +112,11 @@ def train(args: argparse.Namespace) -> None:
         print(f"Model Parameters: {pc:,} ({pc/1e6:.2f}M)")
 
     if dist_flag:
-        m = DDP(m, device_ids=[lr] if torch.cuda.is_available() else None, find_unused_parameters=True)
+        m = DDP(m, device_ids=[lr] if torch.cuda.is_available() else None)
+        m._set_static_graph()
 
     opt = torch.optim.AdamW(m.parameters(), lr=args.lr, weight_decay=0.01)
-    scaler = torch.cuda.amp.GradScaler(enabled=args.fp16 and torch.cuda.is_available())
+    scaler = torch.amp.GradScaler("cuda", enabled=args.fp16 and torch.cuda.is_available())
     ds = SyntheticLanguageDataset(
         vocab_size=args.vocab_size, seq_len=args.seq_len, num_samples=args.steps * args.batch_size * 2
     )
@@ -138,7 +139,7 @@ def train(args: argparse.Namespace) -> None:
         tgt = b["targets"].to(dev)
 
         opt.zero_grad()
-        with torch.cuda.amp.autocast(enabled=args.fp16 and torch.cuda.is_available()):
+        with torch.amp.autocast("cuda", enabled=args.fp16 and torch.cuda.is_available()):
             out = m(ids, targets=tgt)
             loss = out.loss
 
