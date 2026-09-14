@@ -17,3 +17,8 @@ dist/
 # Logs & temp
 *.log
 .DS_Store
+
+# Internal agent logs & local reports
+KERNEL_ENGINE_PROGRESS.md
+.agents/
+*.agent.md
