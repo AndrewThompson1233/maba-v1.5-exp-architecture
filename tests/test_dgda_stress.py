@@ -26,7 +26,10 @@ if repo_root not in sys.path:
 
 from maba_sparse.config import MabaSparseConfig
 from maba_sparse.layers.dgda import ConvState, DGDALayer
-from tests.test_dgda import sequential_dgda_reference
+try:
+    from tests.test_dgda import sequential_dgda_reference
+except ImportError:
+    from test_dgda import sequential_dgda_reference
 
 
 def chunkwise_exact_solve(
