@@ -112,9 +112,10 @@ def train(args: argparse.Namespace) -> None:
         print(f"Model Parameters: {pc:,} ({pc/1e6:.2f}M)")
 
     if dist_flag:
-        m = DDP(m, device_ids=[lr] if torch.cuda.is_available() else None)
+        m = DDP(m, device_ids=[lr] if torch.cuda.is_available() else None, find_unused_parameters=True)
 
     opt = torch.optim.AdamW(m.parameters(), lr=args.lr, weight_decay=0.01)
+    scaler = torch.cuda.amp.GradScaler(enabled=args.fp16 and torch.cuda.is_available())
     ds = SyntheticLanguageDataset(
         vocab_size=args.vocab_size, seq_len=args.seq_len, num_samples=args.steps * args.batch_size * 2
     )
@@ -137,11 +138,15 @@ def train(args: argparse.Namespace) -> None:
         tgt = b["targets"].to(dev)
 
         opt.zero_grad()
-        out = m(ids, targets=tgt)
-        loss = out.loss
-        loss.backward()
+        with torch.cuda.amp.autocast(enabled=args.fp16 and torch.cuda.is_available()):
+            out = m(ids, targets=tgt)
+            loss = out.loss
+
+        scaler.scale(loss).backward()
+        scaler.unscale_(opt)
         torch.nn.utils.clip_grad_norm_(m.parameters(), 1.0)
-        opt.step()
+        scaler.step(opt)
+        scaler.update()
 
         st = time.time() - ts
         ntoks = ids.numel() * ws
@@ -183,6 +188,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--d_emb", type=int, default=128)
     parser.add_argument("--intermediate_size", type=int, default=1248)
     parser.add_argument("--log_interval", type=int, default=10)
+    parser.add_argument("--fp16", action="store_true", help="Enable FP16 mixed precision training")
     return parser.parse_args()
 
 
