@@ -42,9 +42,19 @@ tags:
 
 # Maba v1.5-exp Architecture
 
-> [!NOTE]
-> **Experimental Architecture**
-> This repository contains an experimental research architecture (`maba-v1.5-exp-architecture`) exploring sub-quadratic decoupled linear recurrence and dynamic sparse attention. It is a research prototype.
+> [!WARNING]
+> # ⚠️ ARCHITECTURE DEPRECATED / УСТАРЕВШАЯ АРХИТЕКТУРА
+>
+> **Архитектура `maba-v1.5-exp` официально устарела. Настоятельно рекомендуется использовать [Maba v2 Architecture](https://github.com/AndrewThompson1233/maba-v2-architecture) ([Hugging Face](https://huggingface.co/AndrewThompson1233/maba-v2-architecture)).**
+>
+> **Maba v2 — это улучшенная версия без багов и ограничений прототипа:**
+> - **Полная целостность графа Autograd**: Устранены все ошибки обратного распространения градиентов (backward pass) и краевые случаи диспетчера.
+> - **Контекст 1,000,000+ токенов**: Сжатие KV-кэша в 39.6 раз (всего 1.20 GB на 1M токенов в FP16) с безошибочным извлечением фактов (Rank #1 needle retrieval).
+> - **Строгая задержка O(1) при генерации**: Стабильные 35–37 мс на токен без замедления на длинных контекстах.
+> - **Позиционная инвариантность (NoPE)**: Замена RoPE на экспоненциальное рекуррентное затухание (α_t) без фазовых искажений.
+>
+> 👉 **Используйте [Maba v2 Architecture (GitHub)](https://github.com/AndrewThompson1233/maba-v2-architecture) | [Hugging Face](https://huggingface.co/AndrewThompson1233/maba-v2-architecture)**
+
 
 Reference PyTorch implementation and specifications for the **Maba v1.5 Experimental Architecture** (`maba-v1.5-exp-architecture`).
 
