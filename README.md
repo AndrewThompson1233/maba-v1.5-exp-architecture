@@ -43,17 +43,17 @@ tags:
 # Maba v1.5-exp Architecture
 
 > [!WARNING]
-> # ⚠️ ARCHITECTURE DEPRECATED / УСТАРЕВШАЯ АРХИТЕКТУРА
+> # ⚠️ ARCHITECTURE DEPRECATED
 >
-> **Архитектура `maba-v1.5-exp` официально устарела. Настоятельно рекомендуется использовать [Maba v2 Architecture](https://github.com/AndrewThompson1233/maba-v2-architecture) ([Hugging Face](https://huggingface.co/AndrewThompson1233/maba-v2-architecture)).**
+> **The `maba-v1.5-exp` architecture is officially deprecated. We strongly recommend migrating to [Maba v2 Architecture](https://github.com/AndrewThompson1233/maba-v2-architecture) ([Hugging Face](https://huggingface.co/AndrewThompson1233/maba-v2-architecture)).**
 >
-> **Maba v2 — это улучшенная версия без багов и ограничений прототипа:**
-> - **Полная целостность графа Autograd**: Устранены все ошибки обратного распространения градиентов (backward pass) и краевые случаи диспетчера.
-> - **Контекст 1,000,000+ токенов**: Сжатие KV-кэша в 39.6 раз (всего 1.20 GB на 1M токенов в FP16) с безошибочным извлечением фактов (Rank #1 needle retrieval).
-> - **Строгая задержка O(1) при генерации**: Стабильные 35–37 мс на токен без замедления на длинных контекстах.
-> - **Позиционная инвариантность (NoPE)**: Замена RoPE на экспоненциальное рекуррентное затухание (α_t) без фазовых искажений.
+> **Maba v2 is the definitive, bug-free evolution of this architecture:**
+> - **Full Autograd Graph Integrity**: Completely resolved backward gradient edge cases, double-backward issues, and dispatcher fallback bugs present in the v1.5-exp prototypes.
+> - **1,000,000+ Native Token Context**: Extreme 39.6x KV-cache compression (1.20 GB for 1M tokens in FP16) with Rank #1 single-needle fact extraction out of 15,625 blocks.
+> - **Strict O(1) Decode Latency**: Flat 35–37 ms/token generation up to 1M tokens on consumer GPUs with zero degradation across context length.
+> - **NoPE Positional Invariance**: Recurrent exponential decay (α_t) completely replacing RoPE to eliminate high-frequency phase noise over long contexts.
 >
-> 👉 **Используйте [Maba v2 Architecture (GitHub)](https://github.com/AndrewThompson1233/maba-v2-architecture) | [Hugging Face](https://huggingface.co/AndrewThompson1233/maba-v2-architecture)**
+> 👉 **Use [Maba v2 Architecture (GitHub)](https://github.com/AndrewThompson1233/maba-v2-architecture) | [Hugging Face](https://huggingface.co/AndrewThompson1233/maba-v2-architecture)**
 
 
 Reference PyTorch implementation and specifications for the **Maba v1.5 Experimental Architecture** (`maba-v1.5-exp-architecture`).
