@@ -158,12 +158,6 @@ The test suite verifies numerical stability, boundary sequence lengths, causal m
 ```bash
 pytest -q
 ```
-```text
-........................................................................ [ 47%]
-........................................................................ [ 94%]
-........                                                                 [100%]
-152 passed in 24.13s
-```
 
 
 * [tests/test_dgda.py](tests/test_dgda.py): Chunkwise Neumann prefill parity against recurrent decode (error < 4.58e-5).

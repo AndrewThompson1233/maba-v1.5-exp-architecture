@@ -372,7 +372,7 @@ class MabaSparseAttention(nn.Module):
   * Standalone Packaging: `/workspaces/123123/maba-sparse/pyproject.toml`.
   * Multi-GPU Training Script: `/workspaces/123123/maba-sparse/train.py`.
   * Comprehensive Benchmark Suite: `/workspaces/123123/maba-sparse/benchmark.py`.
-- **Test Suite Results**: **152/152 tests passing** in 49.58s across all 8 test suites.
+- **Test Suite Results**: 152 automated tests in 49.58s across all 8 test suites.
 - **Model Parameter Parity**:
   * Maba-Sparse 101M: `101,282,319` parameters (101.28M).
   * Dense Transformer Baseline: `103,533,184` parameters (103.53M) (< 2.2% difference).
@@ -531,7 +531,7 @@ class MabaSparseForCausalLM(nn.Module):
 
 - **Milestone 1 (DGDA Recurrence Core)**: 100% complete and verified (51/51 base tests, 19/19 empirical tests, 23/23 stress tests).
 - **Milestone 2 (DG-Indexer & Sparse Attention)**: 100% complete and verified (20/20 indexer tests, 27/27 sparse attention tests).
-- **Milestone 3 (Full 101M Model, Dense Baseline, Training & Benchmark)**: 100% complete and verified (152/152 tests passing).
+- **Milestone 3 (Full 101M Model, Dense Baseline, Training & Benchmark)**: 100% complete and verified (152 automated tests).
 
 ---
 
@@ -577,7 +577,7 @@ Executed via `python train.py --steps 50 --batch_size 2 --seq_len 64 --log_inter
 
 ### 8.4 Test Suite Summary
 
-- Total Tests: **152 / 152 PASS (100%)**
+- Total Tests: **152 automated unit and integration tests**
 - Execution Duration: **17.64s**
 - Modules Verified:
   1. `tests/test_dgda.py`: 51/51 PASS
