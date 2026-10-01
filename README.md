@@ -69,7 +69,7 @@ Detailed technical documentation is organized across dedicated files:
 
 ---
 
-## 6-Way Macro Architecture Comparison (~101M Parameters)
+## Architectural Comparison
 
 | Metric | Maba v1.5-exp | Maba v1.1 | Maba v1.0 Legacy | Qwen 3.8 | Qwen 3.8 Flash Next | MiniCPM5 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -83,7 +83,6 @@ Detailed technical documentation is organized across dedicated files:
 | **Recurrent State (O(1))** | **2.45 MB** | 1.17 MB | 1.17 MB | 1.17 MB | 1.17 MB | 0.00 MB |
 | **Active Memory @ 1M Context**| **2.50 MB (-99.97%)** | 2,560.00 MB | 2,560.00 MB | 2,560.00 MB | 640.00 MB | 10,752.00 MB |
 | **Speculative Heads** | **Built-in MTP (k=2)** | Built-in MTP (k=2) | None | Built-in MTP (k=2) | Built-in MTP (k=2) | None |
-| **Test Suite Verification** | **152 / 152 passed (100%)** | 105 passed | 82 passed | N/A | N/A | N/A |
 
 > [!NOTE]
 > **Pretrained Weights and Downstream Evaluation**
@@ -152,7 +151,7 @@ Clean mathematical representations without complex LaTeX macros:
 
 ---
 
-## Verification Test Suite (100% Pass Rate)
+## Tests
 
 The test suite verifies numerical stability, boundary sequence lengths, causal masking, and O(1) state memory invariance:
 
@@ -166,7 +165,7 @@ pytest -q
 152 passed in 24.13s
 ```
 
-All 8 test suites pass with zero warnings:
+
 * [tests/test_dgda.py](tests/test_dgda.py): Chunkwise Neumann prefill parity against recurrent decode (error < 4.58e-5).
 * [tests/test_dgda_stress.py](tests/test_dgda_stress.py): Arbitrary sequence lengths (1, 17, 33, 65, 128, 256) and extreme inputs (+-100).
 * [tests/test_indexer.py](tests/test_indexer.py): Hybrid centroid pooling, distance penalties, and causal block masking.

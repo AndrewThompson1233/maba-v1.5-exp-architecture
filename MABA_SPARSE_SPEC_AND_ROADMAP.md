@@ -372,7 +372,7 @@ class MabaSparseAttention(nn.Module):
   * Standalone Packaging: `/workspaces/123123/maba-sparse/pyproject.toml`.
   * Multi-GPU Training Script: `/workspaces/123123/maba-sparse/train.py`.
   * Comprehensive Benchmark Suite: `/workspaces/123123/maba-sparse/benchmark.py`.
-- **Test Suite Results**: **152/152 tests passing (100% PASS RATE)** in 49.58s across all 8 test suites.
+- **Test Suite Results**: **152/152 tests passing** in 49.58s across all 8 test suites.
 - **Model Parameter Parity**:
   * Maba-Sparse 101M: `101,282,319` parameters (101.28M).
   * Dense Transformer Baseline: `103,533,184` parameters (103.53M) (< 2.2% difference).
